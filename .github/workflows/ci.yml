@@ -5,6 +5,7 @@ name: CI
 env:
   JDK_JAVA_OPTIONS: -XX:+PrintCommandLineFlags
 'on':
+  workflow_dispatch: {}
   release:
     types:
       - published

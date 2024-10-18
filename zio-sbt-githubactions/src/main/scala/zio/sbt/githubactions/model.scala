@@ -16,16 +16,22 @@
 
 package zio.sbt.githubactions
 
-import scala.collection.immutable.ListMap
-import scala.util.{Failure, Success, Try}
+import zio.sbt.{githubactionsnative => ghnative}
 
-import zio.json._
+import zio.json.ast.Json
+import scala.collection.immutable.ListMap
 
 sealed trait OS {
   val asString: String
 }
 object OS {
   case object UbuntuLatest extends OS { val asString = "ubuntu-latest" }
+
+  implicit class OSOps(val os: OS) extends AnyVal {
+    def toNative: ghnative.OS = os match {
+      case UbuntuLatest => ghnative.OS.UbuntuLatest
+    }
+  }
 }
 
 sealed trait Branch
@@ -33,119 +39,97 @@ object Branch {
   case object All                extends Branch
   case class Named(name: String) extends Branch
 
-  implicit val codec: JsonCodec[Branch] = JsonCodec.string.transform(
-    {
-      case "*"  => All
-      case name => Named(name)
-    },
-    {
-      case All         => "*"
-      case Named(name) => name
+  implicit class BranchOps(val branch: Branch) extends AnyVal {
+    def toNative: ghnative.Branch = branch match {
+      case All         => ghnative.Branch.All
+      case Named(name) => ghnative.Branch.Named(name)
     }
-  )
+  }
 }
 
-@jsonMemberNames(SnakeCase)
-case class Triggers(
-  workflowDispatch: Option[Triggers.WorkflowDispatch] = None,
-  release: Option[Triggers.Release] = None,
-  pullRequest: Option[Triggers.PullRequest] = None,
-  push: Option[Triggers.Push] = None,
-  create: Option[Triggers.Create] = None
-)
+sealed trait Trigger
 
-object Triggers {
-  case class InputValue(description: String, required: Boolean, default: String)
-  object InputValue {
-    implicit val jsonCodec: JsonCodec[InputValue] = DeriveJsonCodec.gen[InputValue]
+case class Input(key: String, description: String, required: Boolean, defaultValue: String)
+
+object Input {
+  implicit class InputOps(val input: Input) extends AnyVal {
+    def toNative: (String, ghnative.Trigger.InputValue) =
+      input.key -> ghnative.Trigger.InputValue(input.description, input.required, input.defaultValue)
   }
+}
 
+object Trigger {
   case class WorkflowDispatch(
-    inputs: ListMap[String, InputValue] = ListMap.empty
-  )
-
-  object WorkflowDispatch {
-    implicit def listMapCodec[K: JsonFieldDecoder: JsonFieldEncoder, V: JsonCodec]: JsonCodec[ListMap[K, V]] =
-      JsonCodec(
-        JsonEncoder.keyValueIterable[K, V, ListMap],
-        JsonDecoder.keyValueChunk[K, V].map(c => ListMap(c: _*))
-      )
-
-    implicit val jsonCodec: JsonCodec[WorkflowDispatch] = DeriveJsonCodec.gen[WorkflowDispatch]
-  }
+    inputs: Seq[Input] = Seq.empty
+  ) extends Trigger
 
   case class Release(
-    types: Seq[ReleaseType] = Seq.empty
-  )
+    releaseTypes: Seq[String] = Seq.empty
+  ) extends Trigger
 
-  object Release {
-    implicit val jsonCodec: JsonCodec[Release] = DeriveJsonCodec.gen[Release]
-  }
-
-  sealed trait ReleaseType
-  object ReleaseType {
-    case object Created     extends ReleaseType
-    case object Published   extends ReleaseType
-    case object Prereleased extends ReleaseType
-
-    implicit val codec: JsonCodec[ReleaseType] = JsonCodec.string.transformOrFail(
-      {
-        case "created"     => Right(Created)
-        case "published"   => Right(Published)
-        case "prereleased" => Right(Prereleased)
-        case other         => Left(s"Invalid release type: $other")
-      },
-      {
-        case Created     => "created"
-        case Published   => "published"
-        case Prereleased => "prereleased"
-      }
-    )
-  }
-
-  @jsonMemberNames(KebabCase)
   case class PullRequest(
-    // types: Option[Seq[PullRequestType]] = None,
-    branches: Option[Seq[Branch]] = None,
-    branchesIgnore: Option[Seq[Branch]] = None,
-    paths: Option[Seq[String]] = None
-  )
-
-  object PullRequest {
-    implicit val jsonCodec: JsonCodec[PullRequest] = DeriveJsonCodec.gen[PullRequest]
-  }
+    branches: Seq[Branch] = Seq.empty,
+    ignoredBranches: Seq[Branch] = Seq.empty
+  ) extends Trigger
 
   case class Push(
-    branches: Option[Seq[Branch]] = None,
-    branchesIgnore: Option[Seq[Branch]] = None
-  )
-
-  object Push {
-    implicit val jsonCodec: JsonCodec[Push] = DeriveJsonCodec.gen[Push]
-  }
+    branches: Seq[Branch] = Seq.empty,
+    ignoredBranches: Seq[Branch] = Seq.empty
+  ) extends Trigger
 
   case class Create(
-    branches: Option[Seq[Branch]] = None,
-    branchesIgnore: Option[Seq[Branch]] = None
-  )
+    branches: Seq[Branch] = Seq.empty,
+    ignoredBranches: Seq[Branch] = Seq.empty
+  ) extends Trigger
 
-  object Create {
-    implicit val jsonCodec: JsonCodec[Create] = DeriveJsonCodec.gen[Create]
+  implicit class TriggerOps(val trigger: Trigger) extends AnyVal {
+    def toNative: ghnative.Trigger = trigger match {
+      case WorkflowDispatch(inputs) =>
+        ghnative.Trigger.WorkflowDispatch(Some(ListMap(inputs.map(_.toNative): _*)).filter(_.nonEmpty))
+      case Release(releaseTypes) =>
+        ghnative.Trigger.Release(releaseTypes.map {
+          case "created"     => ghnative.Trigger.ReleaseType.Created
+          case "published"   => ghnative.Trigger.ReleaseType.Published
+          case "prereleased" => ghnative.Trigger.ReleaseType.Prereleased
+        })
+      case PullRequest(branches, ignoredBranches) =>
+        ghnative.Trigger.PullRequest(
+          Some(branches.map(_.toNative)).filter(_.nonEmpty),
+          Some(ignoredBranches.map(_.toNative)).filter(_.nonEmpty)
+        )
+      case Push(branches, ignoredBranches) =>
+        ghnative.Trigger.Push(
+          Some(branches.map(_.toNative)).filter(_.nonEmpty),
+          Some(ignoredBranches.map(_.toNative)).filter(_.nonEmpty)
+        )
+      case Create(branches, ignoredBranches) =>
+        ghnative.Trigger.Create(
+          Some(branches.map(_.toNative)).filter(_.nonEmpty),
+          Some(ignoredBranches.map(_.toNative)).filter(_.nonEmpty)
+        )
+    }
   }
-
-  implicit val codec: JsonCodec[Triggers] = DeriveJsonCodec.gen[Triggers]
 }
 
-@jsonMemberNames(KebabCase)
 case class Strategy(matrix: Map[String, List[String]], maxParallel: Option[Int] = None, failFast: Boolean = true)
 
 object Strategy {
-  implicit val codec: JsonCodec[Strategy] = DeriveJsonCodec.gen[Strategy]
+  implicit class StrategyOps(val strategy: Strategy) extends AnyVal {
+    def toNative: ghnative.Strategy =
+      ghnative.Strategy(
+        matrix = strategy.matrix.map { case (key, values) => key -> values },
+        maxParallel = strategy.maxParallel,
+        failFast = strategy.failFast
+      )
+  }
 }
 
 case class ActionRef(ref: String)
+
 object ActionRef {
-  implicit val codec: JsonCodec[ActionRef] = JsonCodec.string.transform(ActionRef(_), _.ref)
+  implicit class ActionRefOps(val actionRef: ActionRef) extends AnyVal {
+    def toNative: ghnative.ActionRef = ghnative.ActionRef(actionRef.ref)
+  }
 }
 
 sealed trait Condition {
@@ -175,10 +159,6 @@ object Condition {
     def asString: String = s"$${{ $expression }}"
   }
 
-  object Expression {
-    implicit val codec: JsonCodec[Expression] = JsonCodec.string.transform(Expression(_), _.asString)
-  }
-
   case class Function(expression: String) extends Condition {
     def &&(other: Condition): Condition =
       throw new IllegalArgumentException("Not supported currently")
@@ -189,17 +169,12 @@ object Condition {
     def asString: String = expression
   }
 
-  object Function {
-    implicit val codec: JsonCodec[Function] = JsonCodec.string.transform(Function(_), _.expression)
+  implicit class ConditionOps(val condition: Condition) extends AnyVal {
+    def toNative: ghnative.Condition = condition match {
+      case Expression(expression) => ghnative.Condition.Expression(expression)
+      case Function(expression)   => ghnative.Condition.Function(expression)
+    }
   }
-
-  implicit val codec: JsonCodec[Condition] = JsonCodec.string.transform(
-    {
-      case expression if expression.startsWith("${{") => Expression(expression)
-      case expression                                 => Function(expression)
-    },
-    _.asString
-  )
 }
 
 sealed trait Step {
@@ -211,19 +186,15 @@ object Step {
     name: String,
     id: Option[String] = None,
     uses: Option[ActionRef] = None,
-    `if`: Option[Condition] = None,
-    `with`: Option[Map[String, String]] = None,
+    condition: Option[Condition] = None,
+    parameters: Map[String, Json] = Map.empty,
     run: Option[String] = None,
-    env: Option[Map[String, String]] = None
+    env: Map[String, String] = Map.empty
   ) extends Step {
     override def when(condition: Condition): Step =
-      copy(`if` = Some(condition))
+      copy(condition = Some(condition))
 
     override def flatten: Seq[Step.SingleStep] = Seq(this)
-  }
-
-  object SingleStep {
-    implicit val codec: JsonCodec[SingleStep] = DeriveJsonCodec.gen[SingleStep]
   }
 
   case class StepSequence(steps: Seq[Step]) extends Step {
@@ -234,25 +205,38 @@ object Step {
       steps.flatMap(_.flatten)
   }
 
-  implicit val codec: JsonCodec[Step] = DeriveJsonCodec.gen[Step]
+  implicit class StepOps(val step: Step) extends AnyVal {
+    def toNative: ghnative.Step = step match {
+      case SingleStep(name, id, uses, condition, parameters, run, env) =>
+        ghnative.Step.SingleStep(
+          name = name,
+          id = id,
+          uses = uses.map(_.toNative),
+          `if` = condition.map(_.toNative),
+          `with` = Some(parameters).filter(_.nonEmpty),
+          run = run,
+          env = Some(env).filter(_.nonEmpty)
+        )
+      case StepSequence(steps) =>
+        ghnative.Step.StepSequence(steps.map(_.toNative))
+    }
+  }
 }
 
 case class ImageRef(ref: String)
+
 object ImageRef {
-  implicit val codec: JsonCodec[ImageRef] = JsonCodec.string.transform(ImageRef(_), _.ref)
+  implicit class ImageRefOps(val imageRef: ImageRef) extends AnyVal {
+    def toNative: ghnative.ImageRef = ghnative.ImageRef(imageRef.ref)
+  }
 }
 
 case class ServicePort(inner: Int, outer: Int)
+
 object ServicePort {
-  implicit val codec: JsonCodec[ServicePort] = JsonCodec.string.transformOrFail(
-    v =>
-      Try(v.split(":", 2).map(_.toInt).toList) match {
-        case Success(inner :: outer :: Nil) => Right(ServicePort(inner.toInt, outer.toInt))
-        case Success(_)                     => Left("Invalid service port format: " + v)
-        case Failure(_)                     => Left("Invalid service port format: " + v)
-      },
-    sp => s"${sp.inner}:${sp.outer}"
-  )
+  implicit class ServicePortOps(val servicePort: ServicePort) extends AnyVal {
+    def toNative: ghnative.ServicePort = ghnative.ServicePort(servicePort.inner, servicePort.outer)
+  }
 }
 
 case class Service(
@@ -261,77 +245,97 @@ case class Service(
   env: Map[String, String] = Map.empty,
   ports: Seq[ServicePort] = Seq.empty
 )
+
 object Service {
-  implicit val codec: JsonCodec[Service] = DeriveJsonCodec.gen[Service]
+  implicit class ServiceOps(val service: Service) extends AnyVal {
+    def toNative: ghnative.Service = ghnative.Service(
+      name = service.name,
+      image = service.image.toNative,
+      env = Some(service.env).filter(_.nonEmpty),
+      ports = Some(service.ports.map(_.toNative)).filter(_.nonEmpty)
+    )
+  }
 }
 
-@jsonMemberNames(KebabCase)
-case class JobValue(
+case class Job(
+  id: String,
   name: String,
   runsOn: String = "ubuntu-latest",
-  timeoutMinutes: Option[Int] = None,
+  timeoutMinutes: Int = 30,
   continueOnError: Boolean = false,
   strategy: Option[Strategy] = None,
-  needs: Option[Seq[String]] = None,
-  services: Option[Seq[Service]] = None,
-  `if`: Option[Condition] = None,
-  steps: Seq[Step.SingleStep] = Seq.empty
+  steps: Seq[Step] = Seq.empty,
+  need: Seq[String] = Seq.empty,
+  services: Seq[Service] = Seq.empty,
+  condition: Option[Condition] = None
 ) {
-  def withStrategy(strategy: Strategy): JobValue =
+  def withStrategy(strategy: Strategy): Job =
     copy(strategy = Some(strategy))
 
-  def withSteps(steps: Step*): JobValue = steps match {
-    case steps: Step.StepSequence =>
-      copy(steps = steps.flatten)
-    case step: Step.SingleStep =>
-      copy(steps = step :: Nil)
+  def withSteps(steps: Step*): Job =
+    copy(steps = steps)
+
+  def withServices(services: Service*): Job =
+    copy(services = services)
+}
+
+object Job {
+  implicit class JobOps(val job: Job) extends AnyVal {
+    def toNative: ghnative.Job = (
+      job.id,
+      ghnative.JobValue(
+        name = job.name,
+        runsOn = job.runsOn,
+        timeoutMinutes = Some(job.timeoutMinutes),
+        continueOnError = job.continueOnError,
+        strategy = job.strategy.map(_.toNative),
+        steps = job.steps.map(_.toNative).flatMap(_.flatten),
+        needs = Some(job.need),
+        services = Some(job.services.map(_.toNative)).filter(_.nonEmpty),
+        `if` = job.condition.map(_.toNative)
+      )
+    )
   }
-
-  def withServices(services: Service*): JobValue =
-    copy(services = Some(services))
-}
-
-object JobValue {
-  implicit val codec: JsonCodec[JobValue] = DeriveJsonCodec.gen[JobValue]
-}
-
-@jsonMemberNames(KebabCase)
-case class Concurrency(
-  group: String,
-  cancelInProgress: Boolean = true
-)
-
-object Concurrency {
-  implicit val codec: JsonCodec[Concurrency] = DeriveJsonCodec.gen[Concurrency]
 }
 
 case class Workflow(
   name: String,
-  env: ListMap[String, String] = ListMap.empty,
-  on: Option[Triggers] = None,
-  concurrency: Concurrency = Concurrency(
-    "${{ github.workflow }}-${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.run_id || github.ref }}"
-  ),
-  jobs: ListMap[String, JobValue] = ListMap.empty
+  env: Map[String, String] = Map.empty,
+  triggers: Seq[Trigger] = Seq.empty,
+  jobs: Seq[Job] = Seq.empty
 ) {
-  def withOn(on: Triggers): Workflow =
-    copy(on = Some(on))
+  def on(triggers: Trigger*): Workflow =
+    copy(triggers = triggers)
 
-  def withJobs(jobs: (String, JobValue)*): Workflow =
-    copy(jobs = ListMap(jobs: _*))
+  def withJobs(jobs: Job*): Workflow =
+    copy(jobs = jobs)
 
-  def addJob(job: (String, JobValue)): Workflow =
-    copy(jobs = jobs + job)
+  def addJob(job: Job): Workflow =
+    copy(jobs = jobs :+ job)
 
-  def addJobs(newJobs: (String, JobValue)*): Workflow =
+  def addJobs(newJobs: Seq[Job]): Workflow =
     copy(jobs = jobs ++ newJobs)
 }
 
 object Workflow {
-  implicit def listMapCodec[K: JsonFieldDecoder: JsonFieldEncoder, V: JsonCodec]: JsonCodec[ListMap[K, V]] =
-    JsonCodec(
-      JsonEncoder.keyValueIterable[K, V, ListMap],
-      JsonDecoder.keyValueChunk[K, V].map(c => ListMap(c: _*))
+  implicit class WorkflowOps(val workflow: Workflow) extends AnyVal {
+    def toNative: ghnative.Workflow = ghnative.Workflow(
+      name = workflow.name,
+      env = Some(ListMap.empty ++ workflow.env).filter(_.nonEmpty),
+      on = {
+        val triggers = workflow.triggers.map(_.toNative)
+        Some(
+          ghnative.Triggers(
+            workflowDispatch = triggers.collectFirst { case t: ghnative.Trigger.WorkflowDispatch => t }
+              .getOrElse(ghnative.Trigger.WorkflowDispatch()),
+            release = triggers.collectFirst { case t: ghnative.Trigger.Release => t },
+            pullRequest = triggers.collectFirst { case t: ghnative.Trigger.PullRequest => t },
+            push = triggers.collectFirst { case t: ghnative.Trigger.Push => t },
+            create = triggers.collectFirst { case t: ghnative.Trigger.Create => t }
+          )
+        ).filter(_ => triggers.nonEmpty)
+      },
+      jobs = ListMap(workflow.jobs.map(_.toNative): _*)
     )
-  implicit val codec: JsonCodec[Workflow] = DeriveJsonCodec.gen[Workflow]
+  }
 }
