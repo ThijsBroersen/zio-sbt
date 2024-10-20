@@ -16,10 +16,10 @@
 
 package zio.sbt.githubactions
 
-import zio.sbt.{githubactionsnative => ghnative}
+import scala.collection.immutable.ListMap
 
 import zio.json.ast.Json
-import scala.collection.immutable.ListMap
+import zio.sbt.{githubactionsnative => ghnative}
 
 sealed trait OS {
   val asString: String
@@ -27,7 +27,7 @@ sealed trait OS {
 object OS {
   case object UbuntuLatest extends OS { val asString = "ubuntu-latest" }
 
-  implicit class OSOps(val os: OS) extends AnyVal {
+  implicit class OSOps(private val os: OS) extends AnyVal {
     def toNative: ghnative.OS = os match {
       case UbuntuLatest => ghnative.OS.UbuntuLatest
     }
@@ -39,7 +39,7 @@ object Branch {
   case object All                extends Branch
   case class Named(name: String) extends Branch
 
-  implicit class BranchOps(val branch: Branch) extends AnyVal {
+  implicit class BranchOps(private val branch: Branch) extends AnyVal {
     def toNative: ghnative.Branch = branch match {
       case All         => ghnative.Branch.All
       case Named(name) => ghnative.Branch.Named(name)
@@ -52,7 +52,7 @@ sealed trait Trigger
 case class Input(key: String, description: String, required: Boolean, defaultValue: String)
 
 object Input {
-  implicit class InputOps(val input: Input) extends AnyVal {
+  implicit class InputOps(private val input: Input) extends AnyVal {
     def toNative: (String, ghnative.Trigger.InputValue) =
       input.key -> ghnative.Trigger.InputValue(input.description, input.required, input.defaultValue)
   }
@@ -82,7 +82,7 @@ object Trigger {
     ignoredBranches: Seq[Branch] = Seq.empty
   ) extends Trigger
 
-  implicit class TriggerOps(val trigger: Trigger) extends AnyVal {
+  implicit class TriggerOps(private val trigger: Trigger) extends AnyVal {
     def toNative: ghnative.Trigger = trigger match {
       case WorkflowDispatch(inputs) =>
         ghnative.Trigger.WorkflowDispatch(Some(ListMap(inputs.map(_.toNative): _*)).filter(_.nonEmpty))
@@ -114,7 +114,7 @@ object Trigger {
 case class Strategy(matrix: Map[String, List[String]], maxParallel: Option[Int] = None, failFast: Boolean = true)
 
 object Strategy {
-  implicit class StrategyOps(val strategy: Strategy) extends AnyVal {
+  implicit class StrategyOps(private val strategy: Strategy) extends AnyVal {
     def toNative: ghnative.Strategy =
       ghnative.Strategy(
         matrix = strategy.matrix.map { case (key, values) => key -> values },
@@ -127,7 +127,7 @@ object Strategy {
 case class ActionRef(ref: String)
 
 object ActionRef {
-  implicit class ActionRefOps(val actionRef: ActionRef) extends AnyVal {
+  implicit class ActionRefOps(private val actionRef: ActionRef) extends AnyVal {
     def toNative: ghnative.ActionRef = ghnative.ActionRef(actionRef.ref)
   }
 }
@@ -169,7 +169,7 @@ object Condition {
     def asString: String = expression
   }
 
-  implicit class ConditionOps(val condition: Condition) extends AnyVal {
+  implicit class ConditionOps(private val condition: Condition) extends AnyVal {
     def toNative: ghnative.Condition = condition match {
       case Expression(expression) => ghnative.Condition.Expression(expression)
       case Function(expression)   => ghnative.Condition.Function(expression)
@@ -205,7 +205,7 @@ object Step {
       steps.flatMap(_.flatten)
   }
 
-  implicit class StepOps(val step: Step) extends AnyVal {
+  implicit class StepOps(private val step: Step) extends AnyVal {
     def toNative: ghnative.Step = step match {
       case SingleStep(name, id, uses, condition, parameters, run, env) =>
         ghnative.Step.SingleStep(
@@ -226,7 +226,7 @@ object Step {
 case class ImageRef(ref: String)
 
 object ImageRef {
-  implicit class ImageRefOps(val imageRef: ImageRef) extends AnyVal {
+  implicit class ImageRefOps(private val imageRef: ImageRef) extends AnyVal {
     def toNative: ghnative.ImageRef = ghnative.ImageRef(imageRef.ref)
   }
 }
@@ -234,7 +234,7 @@ object ImageRef {
 case class ServicePort(inner: Int, outer: Int)
 
 object ServicePort {
-  implicit class ServicePortOps(val servicePort: ServicePort) extends AnyVal {
+  implicit class ServicePortOps(private val servicePort: ServicePort) extends AnyVal {
     def toNative: ghnative.ServicePort = ghnative.ServicePort(servicePort.inner, servicePort.outer)
   }
 }
@@ -247,7 +247,7 @@ case class Service(
 )
 
 object Service {
-  implicit class ServiceOps(val service: Service) extends AnyVal {
+  implicit class ServiceOps(private val service: Service) extends AnyVal {
     def toNative: ghnative.Service = ghnative.Service(
       name = service.name,
       image = service.image.toNative,
@@ -280,7 +280,7 @@ case class Job(
 }
 
 object Job {
-  implicit class JobOps(val job: Job) extends AnyVal {
+  implicit class JobOps(private val job: Job) extends AnyVal {
     def toNative: ghnative.Job = (
       job.id,
       ghnative.JobValue(
@@ -318,7 +318,7 @@ case class Workflow(
 }
 
 object Workflow {
-  implicit class WorkflowOps(val workflow: Workflow) extends AnyVal {
+  implicit class WorkflowOps(private val workflow: Workflow) extends AnyVal {
     def toNative: ghnative.Workflow = ghnative.Workflow(
       name = workflow.name,
       env = Some(ListMap.empty ++ workflow.env).filter(_.nonEmpty),
