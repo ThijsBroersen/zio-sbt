@@ -27,12 +27,14 @@ import sbt.{Def, _}
 import sbtbuildinfo.BuildInfoPlugin
 import scalafix.sbt.ScalafixPlugin
 
+import zio.sbt.ZioSbtShared.autoImport.{banners, usefulTasksAndSettings, welcomeMessage}
+
 object ZioSbtEcosystemPlugin extends AutoPlugin {
 
   override def trigger = allRequirements
 
   override def requires: Plugins =
-    super.requires && HeaderPlugin && ScalafixPlugin && ScalafmtPlugin && BuildInfoPlugin
+    super.requires && HeaderPlugin && ScalafixPlugin && ScalafmtPlugin && BuildInfoPlugin && ZioSbtCrossbuildPlugin
 
   object autoImport extends ScalaCompilerSettings {
 
@@ -47,69 +49,35 @@ object ZioSbtEcosystemPlugin extends AutoPlugin {
         usefulTasksAndSettings += command.toItem
       )
 
-    lazy val scala3: SettingKey[String]     = settingKey[String]("Scala 3 version")
-    lazy val scala212: SettingKey[String]   = settingKey[String]("Scala 2.12 version")
-    lazy val scala213: SettingKey[String]   = settingKey[String]("Scala 2.13 version")
     lazy val zioVersion: SettingKey[String] = settingKey[String]("ZIO version")
-
-    lazy val javaPlatform: SettingKey[String] = settingKey[String]("java target platform, default is 11")
-
-    val welcomeBannerEnabled: SettingKey[Boolean] =
-      settingKey[Boolean]("Indicates whether or not to enable the welcome banner.")
-
-    val usefulTasksAndSettings: SettingKey[Map[String, String]] = settingKey[Map[String, String]](
-      "A map of useful tasks and settings that will be displayed as part of the welcome banner."
-    )
 
   }
 
   import autoImport.*
 
-  private val defaultTasksAndSettings: Map[String, String] = Commands.ComposableCommand.makeHelp ++ ListMap(
+  private val defaultTasksAndSettings: ListMap[String, String] = Commands.ComposableCommand.makeHelp ++ ListMap(
 //    "build"                                       -> "Lints source files then strictly compiles and runs tests.",
-    "enableStrictCompile"                         -> "Enables strict compilation e.g. warnings become errors.",
-    "disableStrictCompile"                        -> "Disables strict compilation e.g. warnings are no longer treated as errors.",
-    "~compile"                                    -> "Compiles all modules (file-watch enabled)",
-    "test"                                        -> "Runs all tests",
-    """testOnly *.YourSpec -- -t \"YourLabel\"""" -> "Only runs tests with matching term e.g."
+    "enableStrictCompile"  -> "Enables strict compilation e.g. warnings become errors.",
+    "disableStrictCompile" -> "Disables strict compilation e.g. warnings are no longer treated as errors.",
+    "~compile"             -> "Compiles all modules (file-watch enabled)"
   )
 
-  def welcomeMessage: Setting[String] =
-    onLoadMessage := {
-      if (welcomeBannerEnabled.value) {
-        import scala.Console
-
-        val maxLen = usefulTasksAndSettings.value.keys.map(_.length).max
-
-        def normalizedPadding(s: String) = " " * (maxLen - s.length)
-
-        def item(text: String): String = s"${Console.GREEN}> ${Console.CYAN}$text${Console.RESET}"
-
-        s"""|${Banner.trueColor(s"${name.value} v.${version.value}")}
-            |Useful sbt tasks:
-            |${usefulTasksAndSettings.value.map { case (task, description) =>
-             s"${item(task)} ${normalizedPadding(task)}${description}"
-           }
-             .mkString("\n")}
-      """.stripMargin
-
-      } else ""
-    }
-
   override def projectSettings: Seq[Setting[_]] =
-    Commands.settings ++ welcomeMessage ++ Seq(
-      usefulTasksAndSettings := defaultTasksAndSettings,
-      welcomeBannerEnabled   := true
-    ) ++ Tasks.settings // ++ Tasks.settings
+    Commands.settings ++ Tasks.settings ++ Seq(
+      banners ++= {
+        if (SharedTasks.isRoot.value) Seq(Banner.trueColor(s"${(ThisBuild / name).value} v.${version.value}"))
+        else Seq.empty
+      },
+      usefulTasksAndSettings ++= {
+        if (SharedTasks.isRoot.value) ZioSbtEcosystemPlugin.defaultTasksAndSettings.toSeq else Seq.empty
+      },
+      onLoadMessage := {
+        if (SharedTasks.isRoot.value) welcomeMessage.init.value else ""
+      }
+    )
 
   override def buildSettings: Seq[Def.Setting[_]] = super.buildSettings ++ Seq(
-    scala3             := Versions.scala3,
-    scala212           := Versions.scala212,
-    scala213           := Versions.scala213,
-    scalaVersion       := scala213.value,
-    crossScalaVersions := Seq(scala212.value, scala213.value, scala3.value),
-    zioVersion         := Versions.zioVersion,
-    javaPlatform       := "11"
+    zioVersion := zioVersion.?.value.getOrElse(Versions.zioVersion)
   )
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -124,9 +92,10 @@ object ZioSbtEcosystemPlugin extends AutoPlugin {
           s"scm:git:git@github.com:zio/${normalizedName}.git"
         )
       ),
-      pgpPassphrase        := sys.env.get("PGP_PASSPHRASE").map(_.toArray),
-      pgpPublicRing        := file("/tmp/public.asc"),
-      pgpSecretRing        := file("/tmp/secret.asc"),
-      onChangedBuildSource := ReloadOnSourceChanges
+      pgpPassphrase                      := sys.env.get("PGP_PASSPHRASE").map(_.toArray),
+      pgpPublicRing                      := file("/tmp/public.asc"),
+      pgpSecretRing                      := file("/tmp/secret.asc"),
+      onChangedBuildSource               := ReloadOnSourceChanges,
+      usefulTasksAndSettings / aggregate := false
     )
 }
