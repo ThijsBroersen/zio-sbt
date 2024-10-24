@@ -22,11 +22,18 @@ import scala.util.{Failure, Success, Try}
 import zio.json._
 import zio.json.ast.Json
 
-sealed trait OS {
-  val asString: String
+abstract class OS(name: String) {
+  val asString: String = name
 }
 object OS {
-  case object UbuntuLatest extends OS { val asString = "ubuntu-latest" }
+
+  def apply(name: String): OS = Custom(name)
+
+  case class Custom(name: String) extends OS(name)
+
+  case object UbuntuLatest extends OS("ubuntu-latest")
+  case object Ubuntu2404   extends OS("ubuntu-24.04")
+  case object Ubuntu2204   extends OS("ubuntu-22.04")
 }
 
 sealed trait Branch
@@ -220,7 +227,7 @@ object Step {
     `if`: Option[Condition] = None,
     `with`: Option[Map[String, Json]] = None,
     run: Option[String] = None,
-    env: Option[Map[String, String]] = None
+    env: Option[ListMap[String, String]] = None
   ) extends Step {
     override def when(condition: Condition): Step =
       copy(`if` = Some(condition))
@@ -229,7 +236,9 @@ object Step {
   }
 
   object SingleStep {
-    implicit val codec: JsonCodec[SingleStep] = DeriveJsonCodec.gen[SingleStep]
+    import Workflow.listMapCodec
+
+    implicit lazy val codec: JsonCodec[SingleStep] = DeriveJsonCodec.gen[SingleStep]
   }
 
   case class StepSequence(steps: Seq[Step]) extends Step {
@@ -319,7 +328,7 @@ case class Job(
 }
 
 object Job {
-  implicit val codec: JsonCodec[Job] = DeriveJsonCodec.gen[Job]
+  implicit lazy val codec: JsonCodec[Job] = DeriveJsonCodec.gen[Job]
 }
 
 @jsonMemberNames(KebabCase)

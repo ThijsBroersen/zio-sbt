@@ -19,12 +19,14 @@ package zio.sbt
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
 import sbt.Keys._
-import sbt.{Def, _}
+import sbt.{JavaVersion => _, _}
 import sbtbuildinfo.BuildInfoPlugin.autoImport.{BuildInfoKey, buildInfoKeys, buildInfoPackage}
-import sbtcrossproject.CrossPlugin.autoImport.{JVMPlatform, crossProjectPlatform}
+import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 import scalafix.sbt.ScalafixPlugin.autoImport.{scalafixDependencies, scalafixSemanticdb}
 
+import zio.sbt.PlatformAssertions.Keys.{defaultCrossScalaVersions, scala212, scala213, scala3}
 import zio.sbt.Versions._
+import zio.sbt.ZioSbtCrossbuildPlugin.autoImport.javaPlatform
 
 trait ScalaCompilerSettings {
 
@@ -80,18 +82,16 @@ trait ScalaCompilerSettings {
   )
 
   def extraOptions(scalaVersion: String, javaPlatform: String, optimize: Boolean): Seq[String] =
-    CrossVersion.partialVersion(scalaVersion) match {
+    (CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, _)) =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
-          "-noindent",
-          s"-release:$javaPlatform"
+          "-Xmax-inlines:64"
         )
       case Some((2, 13)) =>
         Seq(
-          "-Ywarn-unused:params,-implicits",
-          s"-release:$javaPlatform"
+          "-Ywarn-unused:params,-implicits"
         ) ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 12)) =>
         Seq(
@@ -112,7 +112,9 @@ trait ScalaCompilerSettings {
           "242"
         ) ++ std2xOptions ++ optimizerOptions(optimize)
       case _ => Seq.empty
-    }
+    }) ++ Seq(
+      s"-release:$javaPlatform"
+    )
 
   def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*): List[File] =
     for {
@@ -136,29 +138,42 @@ trait ScalaCompilerSettings {
     platformSpecificSources(platform, conf, baseDir)(versions: _*)
   }
 
-  lazy val crossProjectSettings: Seq[Setting[Seq[File]]] = Seq(
-    Compile / unmanagedSourceDirectories ++= {
-      crossPlatformSources(
-        scalaVersion.value,
-        crossProjectPlatform.value.identifier,
-        "main",
-        baseDirectory.value
-      )
-    },
-    Test / unmanagedSourceDirectories ++= {
-      crossPlatformSources(
-        scalaVersion.value,
-        crossProjectPlatform.value.identifier,
-        "test",
-        baseDirectory.value
-      )
-    }
+  private lazy val nonProjectMatrixSourceDirectories = Seq(
+    Compile / unmanagedSourceDirectories ++= Def.settingDyn {
+      if (crossProjectPlatform.?.value.isDefined) {
+        Def.setting {
+          crossPlatformSources(
+            scalaVersion.value,
+            crossProjectPlatform.value.identifier,
+            "main",
+            baseDirectory.value
+          )
+        }
+      } else {
+        Def.setting(List.empty[File])
+      }
+    }.value,
+    Test / unmanagedSourceDirectories ++= Def.settingDyn {
+      if (crossProjectPlatform.?.value.isDefined) {
+        Def.setting {
+          crossPlatformSources(
+            scalaVersion.value,
+            crossProjectPlatform.value.identifier,
+            "test",
+            baseDirectory.value
+          )
+        }
+      } else {
+        Def.setting(List.empty[File])
+      }
+    }.value
   )
+
+  def crossProjectSettings: Seq[Setting[_]] = nonProjectMatrixSourceDirectories
 
   def stdSettings(
     name: Option[String] = None,
     packageName: Option[String] = None,
-    javaPlatform: String = "11",
     enableKindProjector: Boolean = true,
     enableCrossProject: Boolean = false,
     enableScalafix: Boolean = true,
@@ -169,17 +184,25 @@ trait ScalaCompilerSettings {
       case None        => Seq.empty
     }) ++
       Seq(
-        ZioSbtEcosystemPlugin.autoImport.javaPlatform := javaPlatform,
+        crossScalaVersions := {
+          if (PlatformAssertions.Keys.isProjectMatrix.?.value.contains(true))
+            Seq.empty
+          else
+            defaultCrossScalaVersions.?.value
+              .getOrElse(Seq(scala212.value, scala213.value, scala3.value))
+        },
+        javaPlatform := javaPlatform.?.value.getOrElse(JavaVersion.`11`),
         scalacOptions := (
           scalacOptions.value ++
             stdOptions ++
-            extraOptions(Keys.scalaVersion.value, javaPlatform, optimize = !isSnapshot.value) ++
+            extraOptions(Keys.scalaVersion.value, javaPlatform.value, optimize = !isSnapshot.value) ++
             (
               if (turnCompilerWarningIntoErrors && sys.env.contains("CI")) Seq("-Xfatal-warnings")
               else Nil // to enable Scalafix locally
-            )
+            ) ++
+            Seq(s"-release:${javaPlatform.value}")
         ).distinct,
-        javacOptions := Seq("-source", javaPlatform, "-target", javaPlatform),
+        javacOptions := Seq("-source", javaPlatform.value, "-target", javaPlatform.value),
 //      Compile / console / scalacOptions ~= {
 //        _.filterNot(Set("-Xfatal-warnings"))
 //      },
@@ -193,7 +216,10 @@ trait ScalaCompilerSettings {
         Test / parallelExecution := scalaBinaryVersion.value != "3", // why not parallel execution for Scala 3?
         incOptions ~= (_.withLogRecompileOnMacro(false)),
         autoAPIMappings := true,
-        unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
+        unusedCompileDependenciesFilter -= moduleFilter(
+          "org.scala-js",
+          "scalajs-library"
+        ) // why does it need to be filtered out?
       ) ++ (if (enableCrossProject) crossProjectSettings else Seq.empty) ++ {
         packageName match {
           case Some(name) => buildInfoSettings(name)
@@ -217,7 +243,7 @@ trait ScalaCompilerSettings {
   def scalaReflectTestSettings: List[Setting[_]] = List(
     libraryDependencies ++= {
       if (scalaBinaryVersion.value == "3")
-        Seq("org.scala-lang" % "scala-reflect" % ZioSbtEcosystemPlugin.autoImport.scala213.value % Test)
+        Seq("org.scala-lang" % "scala-reflect" % ZioSbtCrossbuildPlugin.autoImport.scala213.value % Test)
       else
         Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % Test)
     }
@@ -243,7 +269,7 @@ trait ScalaCompilerSettings {
 
   def buildInfoSettings(packageName: String): Seq[Setting[_]] =
     Seq(
-      buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+      buildInfoKeys    := Seq[BuildInfoKey](organization, moduleName, name, version, scalaVersion, sbtVersion, isSnapshot),
       buildInfoPackage := packageName
     )
 
@@ -268,19 +294,30 @@ trait ScalaCompilerSettings {
     )
 
   def jsSettings: Seq[Setting[_]] = Seq(
-    Test / fork := crossProjectPlatform.value == JVMPlatform // set fork to `true` on JVM to improve log readability, JS and Native need `false`
+    Test / fork := PlatformAssertions
+      .requireJS(
+        false
+      )
+      .value // set fork to `true` on JVM to improve log readability, JS and Native need `false`
   )
 
-//  def jsSettings_ = Seq(
-//    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time"      % "2.2.2",
-//    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.2.2"
-//  )
+  def jvmSettings: Seq[Setting[_]] = Seq(
+    Test / fork := PlatformAssertions
+      .requireJVM(
+        true
+      )
+      .value // set fork to `true` on JVM to improve log readability, JS and Native need `false`
+  )
 
   def nativeSettings: Seq[Setting[_]] = Seq(
-    doc / skip              := true,
-    Compile / doc / sources := Seq.empty,
-    Test / test             := { val _ = (Test / compile).value; () },
-    Test / fork             := crossProjectPlatform.value == JVMPlatform // set fork to `true` on JVM to improve log readability, JS and Native need `false`
+    Test / fork := PlatformAssertions
+      .requireNative(
+        false
+      )
+      .value, // set fork to `true` on JVM to improve log readability, JS and Native need `false`
+    doc / skip              := PlatformAssertions.requireNative(true).value,
+    Compile / doc / sources := PlatformAssertions.requireNative(Seq.empty).value
+    // Test / test             := { val _ = (Test / compile).value; () }
   )
 
   lazy val scalajs: Seq[Setting[_]] =

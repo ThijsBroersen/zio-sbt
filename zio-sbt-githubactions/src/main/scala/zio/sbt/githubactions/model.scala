@@ -21,11 +21,18 @@ import scala.collection.immutable.ListMap
 import zio.json.ast.Json
 import zio.sbt.{githubactionsnative => ghnative}
 
-sealed trait OS {
-  val asString: String
+abstract class OS(name: String) {
+  val asString: String = name
 }
 object OS {
-  case object UbuntuLatest extends OS { val asString = "ubuntu-latest" }
+
+  def apply(name: String): OS = Custom(name)
+
+  case class Custom(name: String) extends OS(name)
+
+  case object UbuntuLatest extends OS("ubuntu-latest")
+  case object Ubuntu2404   extends OS("ubuntu-24.04")
+  case object Ubuntu2204   extends OS("ubuntu-22.04")
 
   implicit class OSOps(private val os: OS) extends AnyVal {
     def toNative: ghnative.OS = os match {
@@ -189,7 +196,7 @@ object Step {
     condition: Option[Condition] = None,
     parameters: Map[String, Json] = Map.empty,
     run: Option[String] = None,
-    env: Map[String, String] = Map.empty
+    env: ListMap[String, String] = ListMap.empty
   ) extends Step {
     override def when(condition: Condition): Step =
       copy(condition = Some(condition))
