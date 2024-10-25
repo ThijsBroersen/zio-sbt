@@ -100,7 +100,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val checkWebsiteBuildProcess  = ciCheckWebsiteBuildProcess.value
 
     Seq(
-      "build" -> JobValue(
+      Job(
         name = "Build",
         continueOnError = true,
         steps = {
@@ -127,7 +127,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val lint                = Lint.value
 
     Seq(
-      "lint" -> JobValue(
+      Job(
         name = "Lint",
         steps = (if (swapSizeGB > 0) Seq(setSwapSpace) else Seq.empty) ++
           Seq(checkout, SetupLibuv, SetupJava(javaVersion), CacheDependencies) ++ checkGithubWorkflow.flatMap(
@@ -156,7 +156,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
             versions.contains(scalaVersion)
           }.map(e => e._1 + "/test").mkString(" ")}"
 
-      "test" -> JobValue(
+      Job(
         name = "Test",
         strategy = Some(
           Strategy(
@@ -218,7 +218,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     }
 
     val FlattenTests =
-      "test" -> JobValue(
+      Job(
         name = "Test",
         strategy = Some(
           Strategy(
@@ -290,7 +290,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
       )
 
     val DefaultTestStrategy =
-      "test" -> JobValue(
+      Job(
         name = "Test",
         strategy = Some(
           Strategy(
@@ -322,7 +322,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val pullRequestApprovalJobs = ciPullRequestApprovalJobs.value
 
     Seq(
-      "ci" -> JobValue(
+      Job(
         name = "ci",
         needs = Some(pullRequestApprovalJobs),
         steps = Seq(
@@ -344,7 +344,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val generateReadme        = GenerateReadme.value
 
     Seq(
-      "update-readme" -> JobValue(
+      Job(
         name = "Update README",
         `if` = updateReadmeCondition orElse Some(Condition.Expression("github.event_name == 'push'")),
         steps = (if (swapSizeGB > 0) Seq(setSwapSpace) else Seq.empty) ++
@@ -429,7 +429,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val jobs         = ciReleaseApprovalJobs.value
 
     Seq(
-      "release" -> JobValue(
+      Job(
         name = "Release",
         needs = Some(jobs),
         `if` = Some(Condition.Expression("github.event_name != 'pull_request'")),
@@ -453,7 +453,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val publishToNpmRegistry = PublishToNpmRegistry.value
 
     Seq(
-      "release-docs" -> JobValue(
+      Job(
         name = "Release Docs",
         needs = Some(Seq("release")),
         `if` = Some(
@@ -472,7 +472,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
             publishToNpmRegistry
           )
       ),
-      "notify-docs-release" -> JobValue(
+      Job(
         name = "Notify Docs Release",
         needs = Some(Seq("release-docs")),
         `if` = Some(
@@ -542,10 +542,10 @@ object ZioSbtCiPlugin extends AutoPlugin {
               pullRequest = Some(Trigger.PullRequest(branchesIgnore = Some(Seq(Branch.Named("gh-pages")))))
             )
           ),
-          jobs = ListMap.empty[
-            String,
-            JobValue
-          ] ++ buildJobs ++ lintJobs ++ testJobs ++ updateReadmeJobs ++ reportSuccessful ++ releaseJobs ++ postReleaseJobs
+          jobs = ListMap(
+            (buildJobs ++ lintJobs ++ testJobs ++ updateReadmeJobs ++ reportSuccessful ++ releaseJobs ++ postReleaseJobs)
+              .map(job => job.id -> job): _*
+          )
         )
 
       val yaml: String = workflow.toJsonAST.flatMap(_.toYaml(yamlOptions).left.map(_.getMessage())) match {

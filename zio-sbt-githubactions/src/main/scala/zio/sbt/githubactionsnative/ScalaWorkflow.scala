@@ -250,7 +250,7 @@ object ScalaWorkflow {
       operatingSystems: Seq[OS] = Seq(OS.UbuntuLatest),
       javaVersions: Seq[JavaVersion] = Seq(JDK11)
     ): Job =
-      job._1 -> job._2.copy(
+      job.copy(
         strategy = Some(
           Strategy(
             matrix = Map(

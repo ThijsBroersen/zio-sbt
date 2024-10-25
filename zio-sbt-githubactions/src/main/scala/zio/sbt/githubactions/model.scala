@@ -281,9 +281,8 @@ case class Job(
 
 object Job {
   implicit class JobOps(private val job: Job) extends AnyVal {
-    def toNative: ghnative.Job = (
-      job.id,
-      ghnative.JobValue(
+    def toNative: ghnative.Job =
+      ghnative.Job(
         name = job.name,
         runsOn = job.runsOn,
         timeoutMinutes = Some(job.timeoutMinutes),
@@ -294,7 +293,7 @@ object Job {
         services = Some(job.services.map(_.toNative)).filter(_.nonEmpty),
         `if` = job.condition.map(_.toNative)
       )
-    )
+
   }
 }
 
@@ -335,7 +334,7 @@ object Workflow {
           )
         ).filter(_ => triggers.nonEmpty)
       },
-      jobs = ListMap(workflow.jobs.map(_.toNative): _*)
+      jobs = ListMap(workflow.jobs.map(_.toNative).map(job => job.id -> job): _*)
     )
   }
 }

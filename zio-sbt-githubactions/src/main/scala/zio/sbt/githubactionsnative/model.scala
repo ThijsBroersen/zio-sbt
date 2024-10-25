@@ -272,7 +272,7 @@ object Service {
 }
 
 @jsonMemberNames(KebabCase)
-case class JobValue(
+case class Job(
   name: String,
   runsOn: String = "ubuntu-latest",
   timeoutMinutes: Option[Int] = None,
@@ -283,22 +283,43 @@ case class JobValue(
   `if`: Option[Condition] = None,
   steps: Seq[Step.SingleStep] = Seq.empty
 ) {
-  def withStrategy(strategy: Strategy): JobValue =
+
+  def id: String = name.toLowerCase().replace(" ", "-")
+
+  def withStrategy(strategy: Strategy): Job =
     copy(strategy = Some(strategy))
 
-  def withSteps(steps: Step*): JobValue = steps match {
+  def withSteps(steps: Step*): Job = steps match {
     case steps: Step.StepSequence =>
       copy(steps = steps.flatten)
     case step: Step.SingleStep =>
       copy(steps = step :: Nil)
   }
 
-  def withServices(services: Service*): JobValue =
+  def withServices(services: Service*): Job =
     copy(services = Some(services))
+
+  def withRunsOn(runsOn: String): Job =
+    copy(runsOn = runsOn)
+
+  def withName(name: String): Job =
+    copy(name = name)
+
+  def withTimeoutMinutes(timeoutMinutes: Option[Int]): Job =
+    copy(timeoutMinutes = timeoutMinutes)
+
+  def withContinueOnError(continueOnError: Boolean): Job =
+    copy(continueOnError = continueOnError)
+
+  def withStrategy(strategy: Option[Strategy]): Job =
+    copy(strategy = strategy)
+
+  def withNeeds(needs: Option[Seq[String]]): Job =
+    copy(needs = needs)
 }
 
-object JobValue {
-  implicit val codec: JsonCodec[JobValue] = DeriveJsonCodec.gen[JobValue]
+object Job {
+  implicit val codec: JsonCodec[Job] = DeriveJsonCodec.gen[Job]
 }
 
 @jsonMemberNames(KebabCase)
@@ -318,18 +339,18 @@ case class Workflow(
   concurrency: Concurrency = Concurrency(
     "${{ github.workflow }}-${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.run_id || github.ref }}"
   ),
-  jobs: ListMap[String, JobValue] = ListMap.empty
+  jobs: ListMap[String, Job] = ListMap.empty
 ) {
   def withOn(on: Triggers): Workflow =
     copy(on = Some(on))
 
-  def withJobs(jobs: (String, JobValue)*): Workflow =
+  def withJobs(jobs: (String, Job)*): Workflow =
     copy(jobs = ListMap(jobs: _*))
 
-  def addJob(job: (String, JobValue)): Workflow =
+  def addJob(job: (String, Job)): Workflow =
     copy(jobs = jobs + job)
 
-  def addJobs(newJobs: (String, JobValue)*): Workflow =
+  def addJobs(newJobs: (String, Job)*): Workflow =
     copy(jobs = jobs ++ newJobs)
 }
 
