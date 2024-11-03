@@ -41,7 +41,7 @@ object Branch {
   case object All                extends Branch
   case class Named(name: String) extends Branch
 
-  implicit val codec: JsonCodec[Branch] = JsonCodec.string.transform(
+  implicit lazy val codec: JsonCodec[Branch] = JsonCodec.string.transform(
     {
       case "*"  => All
       case name => Named(name)
@@ -64,7 +64,7 @@ case class Triggers(
 
 object Triggers {
 
-  implicit val codec: JsonCodec[Triggers] = DeriveJsonCodec.gen[Triggers]
+  implicit lazy val codec: JsonCodec[Triggers] = DeriveJsonCodec.gen[Triggers]
 }
 
 sealed trait Trigger
@@ -72,7 +72,7 @@ sealed trait Trigger
 object Trigger {
   case class InputValue(description: String, required: Boolean, default: String)
   object InputValue {
-    implicit val jsonCodec: JsonCodec[InputValue] = DeriveJsonCodec.gen[InputValue]
+    implicit lazy val jsonCodec: JsonCodec[InputValue] = DeriveJsonCodec.gen[InputValue]
   }
 
   case class WorkflowDispatch(
@@ -86,7 +86,7 @@ object Trigger {
         JsonDecoder.keyValueChunk[K, V].map(c => ListMap(c: _*))
       )
 
-    implicit val jsonCodec: JsonCodec[WorkflowDispatch] = DeriveJsonCodec.gen[WorkflowDispatch]
+    implicit lazy val jsonCodec: JsonCodec[WorkflowDispatch] = DeriveJsonCodec.gen[WorkflowDispatch]
   }
 
   case class Release(
@@ -94,7 +94,7 @@ object Trigger {
   ) extends Trigger
 
   object Release {
-    implicit val jsonCodec: JsonCodec[Release] = DeriveJsonCodec.gen[Release]
+    implicit lazy val jsonCodec: JsonCodec[Release] = DeriveJsonCodec.gen[Release]
   }
 
   sealed trait ReleaseType
@@ -103,7 +103,7 @@ object Trigger {
     case object Published   extends ReleaseType
     case object Prereleased extends ReleaseType
 
-    implicit val codec: JsonCodec[ReleaseType] = JsonCodec.string.transformOrFail(
+    implicit lazy val codec: JsonCodec[ReleaseType] = JsonCodec.string.transformOrFail(
       {
         case "created"     => Right(Created)
         case "published"   => Right(Published)
@@ -127,7 +127,7 @@ object Trigger {
   ) extends Trigger
 
   object PullRequest {
-    implicit val jsonCodec: JsonCodec[PullRequest] = DeriveJsonCodec.gen[PullRequest]
+    implicit lazy val jsonCodec: JsonCodec[PullRequest] = DeriveJsonCodec.gen[PullRequest]
   }
 
   case class Push(
@@ -136,7 +136,7 @@ object Trigger {
   ) extends Trigger
 
   object Push {
-    implicit val jsonCodec: JsonCodec[Push] = DeriveJsonCodec.gen[Push]
+    implicit lazy val jsonCodec: JsonCodec[Push] = DeriveJsonCodec.gen[Push]
   }
 
   case class Create(
@@ -145,7 +145,7 @@ object Trigger {
   ) extends Trigger
 
   object Create {
-    implicit val jsonCodec: JsonCodec[Create] = DeriveJsonCodec.gen[Create]
+    implicit lazy val jsonCodec: JsonCodec[Create] = DeriveJsonCodec.gen[Create]
   }
 }
 
@@ -155,12 +155,12 @@ case class Strategy(matrix: ListMap[String, List[String]], maxParallel: Option[I
 object Strategy {
   import Workflow.listMapCodec
 
-  implicit val codec: JsonCodec[Strategy] = DeriveJsonCodec.gen[Strategy]
+  implicit lazy val codec: JsonCodec[Strategy] = DeriveJsonCodec.gen[Strategy]
 }
 
 case class ActionRef(ref: String)
 object ActionRef {
-  implicit val codec: JsonCodec[ActionRef] = JsonCodec.string.transform(ActionRef(_), _.ref)
+  implicit lazy val codec: JsonCodec[ActionRef] = JsonCodec.string.transform(ActionRef(_), _.ref)
 }
 
 sealed trait Condition {
@@ -191,7 +191,7 @@ object Condition {
   }
 
   object Expression {
-    implicit val codec: JsonCodec[Expression] = JsonCodec.string.transform(Expression(_), _.asString)
+    implicit lazy val codec: JsonCodec[Expression] = JsonCodec.string.transform(Expression(_), _.asString)
   }
 
   case class Function(expression: String) extends Condition {
@@ -205,10 +205,10 @@ object Condition {
   }
 
   object Function {
-    implicit val codec: JsonCodec[Function] = JsonCodec.string.transform(Function(_), _.expression)
+    implicit lazy val codec: JsonCodec[Function] = JsonCodec.string.transform(Function(_), _.expression)
   }
 
-  implicit val codec: JsonCodec[Condition] = JsonCodec.string.transform(
+  implicit lazy val codec: JsonCodec[Condition] = JsonCodec.string.transform(
     {
       case expression if expression.startsWith("${{") => Expression(expression)
       case expression                                 => Function(expression)
@@ -251,17 +251,17 @@ object Step {
       steps.flatMap(_.flatten)
   }
 
-  implicit val codec: JsonCodec[Step] = DeriveJsonCodec.gen[Step]
+  implicit lazy val codec: JsonCodec[Step] = DeriveJsonCodec.gen[Step]
 }
 
 case class ImageRef(ref: String)
 object ImageRef {
-  implicit val codec: JsonCodec[ImageRef] = JsonCodec.string.transform(ImageRef(_), _.ref)
+  implicit lazy val codec: JsonCodec[ImageRef] = JsonCodec.string.transform(ImageRef(_), _.ref)
 }
 
 case class ServicePort(inner: Int, outer: Int)
 object ServicePort {
-  implicit val codec: JsonCodec[ServicePort] = JsonCodec.string.transformOrFail(
+  implicit lazy val codec: JsonCodec[ServicePort] = JsonCodec.string.transformOrFail(
     v =>
       Try(v.split(":", 2).map(_.toInt).toList) match {
         case Success(inner :: outer :: Nil) => Right(ServicePort(inner.toInt, outer.toInt))
@@ -279,7 +279,7 @@ case class Service(
   ports: Option[Seq[ServicePort]] = None
 )
 object Service {
-  implicit val codec: JsonCodec[Service] = DeriveJsonCodec.gen[Service]
+  implicit lazy val codec: JsonCodec[Service] = DeriveJsonCodec.gen[Service]
 }
 
 @jsonMemberNames(KebabCase)
@@ -340,7 +340,7 @@ case class Concurrency(
 )
 
 object Concurrency {
-  implicit val codec: JsonCodec[Concurrency] = DeriveJsonCodec.gen[Concurrency]
+  implicit lazy val codec: JsonCodec[Concurrency] = DeriveJsonCodec.gen[Concurrency]
 }
 
 case class Workflow(
@@ -372,5 +372,5 @@ object Workflow {
       JsonEncoder.keyValueIterable[K, V, ListMap],
       JsonDecoder.keyValueChunk[K, V].map(c => ListMap(c: _*))
     )
-  implicit val codec: JsonCodec[Workflow] = DeriveJsonCodec.gen[Workflow]
+  implicit lazy val codec: JsonCodec[Workflow] = DeriveJsonCodec.gen[Workflow]
 }

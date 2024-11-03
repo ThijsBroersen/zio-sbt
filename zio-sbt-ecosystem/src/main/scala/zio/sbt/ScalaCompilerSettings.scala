@@ -211,11 +211,7 @@ trait ScalaCompilerSettings {
         },
         Test / parallelExecution := scalaBinaryVersion.value != "3", // why not parallel execution for Scala 3?
         incOptions ~= (_.withLogRecompileOnMacro(false)),
-        autoAPIMappings := true,
-        unusedCompileDependenciesFilter -= moduleFilter(
-          "org.scala-js",
-          "scalajs-library"
-        ) // why does it need to be filtered out?
+        autoAPIMappings := true
       ) ++ (if (enableCrossProject) crossProjectSettings else Seq.empty) ++ {
         packageName match {
           case Some(name) => buildInfoSettings(name)
@@ -294,7 +290,8 @@ trait ScalaCompilerSettings {
       .requireJS(
         false
       )
-      .value
+      .value,
+    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js")
   )
 
   def jvmSettings: Seq[Setting[_]] = Seq(
@@ -312,7 +309,8 @@ trait ScalaCompilerSettings {
       )
       .value,
     doc / skip              := BuildAssertions.requireNative(true).value,
-    Compile / doc / sources := BuildAssertions.requireNative(Seq.empty).value
+    Compile / doc / sources := BuildAssertions.requireNative(Seq.empty).value,
+    unusedCompileDependenciesFilter -= moduleFilter("org.scala-native")
     // Test / test             := { val _ = (Test / compile).value; () } // ??
   )
 
