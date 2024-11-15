@@ -14,8 +14,10 @@ inThisBuild(
     scalaVersion              := Scala212,
     defaultCrossScalaVersions := Seq(Scala212),
     developers := List(
-      Developer("khajavi", "Milad Khajavi", "khajavi@gmail.com", url("https://github.com/khajavi"))
+      Developer("khajavi", "Milad Khajavi", "khajavi@gmail.com", url("https://github.com/khajavi")),
+      Developer("ThijsBroersen", "Thijs Broersen", "thijsbroersen@gmail.com", url("https://github.com/ThijsBroersen"))
     ),
+    organization      := "nl.thijsbroersen",
     checkMima / skip  := true,
     ciEnabledBranches := Seq("main")
   )

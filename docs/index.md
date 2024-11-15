@@ -12,9 +12,9 @@ _ZIO SBT_ contains multiple sbt plugins that are useful for ZIO projects. It pro
 Add the following lines to your `plugin.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % "@VERSION@")
-addSbtPlugin("dev.zio" % "zio-sbt-ci"        % "@VERSION@")
-addSbtPlugin("dev.zio" % "zio-sbt-website"   % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-ecosystem" % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-ci"        % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-website"   % "@VERSION@")
 ```
 
 Then you can enable them by using the following code in your `build.sbt` file:
@@ -48,7 +48,7 @@ These tasks can be used to display a consolidated list of banners and useful tas
 To use the ZIO SBT Shared plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-shared" % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-shared" % "@VERSION@")
 ```
 
 Then in your `build.sbt` file, you can configure the settings and tasks as needed:
@@ -81,7 +81,7 @@ This modules provides settings and tasks for Scala versions, Scala platforms, Ja
 To use the ZIO SBT Project plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-project" % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-project" % "@VERSION@")
 ```
 
 Then in your `build.sbt` file, enable the plugin by adding the following line:
@@ -159,7 +159,7 @@ depends on: ZioSbtProjectPlugin
 To use the ZIO SBT Ecosystem plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-ecosystem" % "@VERSION@")
 ```
 
 Then in your `build.sbt` file, enable the plugin by adding the following line:
@@ -287,7 +287,7 @@ The ZIO SBT CI plugin provides the following tasks (steps can be overridden or m
 To use the ZIO SBT CI plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-ci" % "@VERSION@")
+addSbtPlugin("nl.thijsbroersen" % "zio-sbt-ci" % "@VERSION@")
 
 resolvers ++= Resolver.sonatypeOssRepos("public")
 ```
