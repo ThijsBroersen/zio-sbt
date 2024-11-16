@@ -87,11 +87,13 @@ trait ScalaCompilerSettings {
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
-          "-Xmax-inlines:64"
+          "-Xmax-inlines:64",
+          "-Wunused:imports"
         )
       case Some((2, 13)) =>
         Seq(
-          "-Ywarn-unused:params,-implicits"
+          "-Ywarn-unused:params,-implicits",
+          "-Wunused:imports"
         ) ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 12)) =>
         Seq(
@@ -223,8 +225,16 @@ trait ScalaCompilerSettings {
 
   lazy val scalafixSettings: Seq[Def.Setting[_]] =
     Seq(
-      semanticdbEnabled := Keys.scalaBinaryVersion.value != "3",
-      semanticdbOptions += "-P:semanticdb:synthetics:on",
+      semanticdbEnabled := {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((3, 3)) => true
+          case Some((2, _)) => true
+          case _            => false
+        }
+      },
+      semanticdbOptions ++= {
+        if (BuildAssertions.Keys.isScala3.value) Seq.empty else Seq("-P:semanticdb:synthetics:on")
+      },
       semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
       ThisBuild / scalafixDependencies ++= List(
         "com.github.vovapolu" %% "scaluzzi" % ScaluzziVersion
