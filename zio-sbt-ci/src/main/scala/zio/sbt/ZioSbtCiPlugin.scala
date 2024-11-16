@@ -88,6 +88,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val ciBackgroundJobs: SettingKey[Seq[String]] = settingKey[Seq[String]]("Background jobs")
     val ciBuildJobs: SettingKey[Seq[Job]]         = settingKey[Seq[Job]]("CI Build Jobs")
     val ciLintJobs: SettingKey[Seq[Job]]          = settingKey[Seq[Job]]("CI Lint Jobs")
+    val ciCheckMima: SettingKey[Boolean]          = settingKey[Boolean]("Enable Lint Job: Check binary compatibility")
     val ciTestJobs: SettingKey[Seq[Job]]          = settingKey[Seq[Job]]("CI Test Jobs")
     val ciUpdateReadmeJobs: SettingKey[Seq[Job]]  = settingKey[Seq[Job]]("CI Update Readme Jobs")
     val ciReleaseJobs: SettingKey[Seq[Job]]       = settingKey[Seq[Job]]("CI Release Jobs")
@@ -139,7 +140,6 @@ object ZioSbtCiPlugin extends AutoPlugin {
     val swapSizeGB          = ciSwapSizeGB.value
     val setSwapSpace        = SetSwapSpace.value
     val checkGithubWorkflow = ciCheckGithubWorkflowSteps.value
-    val lint                = Lint.value
 
     Seq(
       Job(
@@ -152,7 +152,9 @@ object ZioSbtCiPlugin extends AutoPlugin {
             CacheDependencies
           ) ++ checkGithubWorkflow.flatMap(
             _.flatten
-          ) ++ Seq(lint)
+          ) ++
+          Seq(Lint.value) ++
+          (if (ciCheckMima.value) Seq(CheckMima.value) else Seq.empty[Step.SingleStep])
       )
     )
   }
@@ -686,6 +688,7 @@ object ZioSbtCiPlugin extends AutoPlugin {
       ciDefaultJavaVersion := zio.sbt.JavaVersion.`17`,
       ciBuildJobs          := buildJobs.value,
       ciLintJobs           := lintJobs.value,
+      ciCheckMima          := false,
       ciTestJobs           := testJobs.value,
       ciUpdateReadmeJobs   := updateReadmeJobs.value,
       ciReleaseJobs        := releaseJobs.value,
@@ -782,6 +785,17 @@ object ZioSbtCiPlugin extends AutoPlugin {
     Step.SingleStep(
       name = "Lint",
       run = Some(prefixJobs + "sbt lint")
+    )
+  }
+
+  lazy val CheckMima: Def.Initialize[Step.SingleStep] = Def.setting {
+    val backgroundJobs = ciBackgroundJobs.value
+    val prefixJobs     = makePrefixJobs(backgroundJobs)
+    val isSingleBuild  = IsSingleBuild.value
+
+    Step.SingleStep(
+      name = "Check binary compatibility",
+      run = Some(prefixJobs + "sbt " + (if (isSingleBuild) "checkMima" else "+checkMima"))
     )
   }
 

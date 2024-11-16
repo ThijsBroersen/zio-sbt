@@ -19,6 +19,7 @@ package zio.sbt
 import scala.collection.immutable.ListMap
 
 import com.jsuereth.sbtpgp.SbtPgp.autoImport._
+import com.typesafe.tools.mima.plugin.MimaPlugin
 import de.heikoseeberger.sbtheader.HeaderPlugin
 import org.scalafmt.sbt.ScalafmtPlugin
 import sbt.Keys._
@@ -34,9 +35,9 @@ object ZioSbtEcosystemPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   override def requires: Plugins =
-    super.requires && HeaderPlugin && ScalafixPlugin && ScalafmtPlugin && BuildInfoPlugin && ZioSbtCrossbuildPlugin
+    super.requires && HeaderPlugin && ScalafixPlugin && ScalafmtPlugin && BuildInfoPlugin && ZioSbtCrossbuildPlugin && MimaPlugin
 
-  object autoImport extends ScalaCompilerSettings {
+  object autoImport extends ScalaCompilerSettings with MimaSettings {
 
     def addCommand(commandString: List[String], name: String, description: String): Seq[Setting[_]] = {
       val cCommand = Commands.ComposableCommand(commandString, name, description)
