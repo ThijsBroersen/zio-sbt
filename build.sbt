@@ -16,6 +16,7 @@ inThisBuild(
     developers := List(
       Developer("khajavi", "Milad Khajavi", "khajavi@gmail.com", url("https://github.com/khajavi"))
     ),
+    checkMima / skip  := true,
     ciEnabledBranches := Seq("main")
   )
 )

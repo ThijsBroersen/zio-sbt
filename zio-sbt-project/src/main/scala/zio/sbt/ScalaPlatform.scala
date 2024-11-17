@@ -47,8 +47,6 @@ object ScalaPlatforms {
       .toSet
   }
 
-  def buildSettings: Seq[Setting[_]] = Seq.empty
-
   def globalSettings: Seq[Setting[_]] = Seq(
     allScalaPlatformsSetting
   )

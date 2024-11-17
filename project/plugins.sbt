@@ -1,5 +1,5 @@
 // Build Server Plugins
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "2.0.3")
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "2.0.5")
 
 // Linting Plugins
 addSbtPlugin("org.scalameta"    % "sbt-scalafmt"              % "2.5.2")
@@ -8,7 +8,7 @@ addSbtPlugin("com.github.cb372" % "sbt-explicit-dependencies" % "0.3.1")
 addSbtPlugin("com.typesafe"     % "sbt-mima-plugin"           % "1.1.4")
 
 // Versioning and Release Plugins
-addSbtPlugin("com.eed3si9n"   % "sbt-buildinfo"  % "0.12.0")
+addSbtPlugin("com.eed3si9n"   % "sbt-buildinfo"  % "0.13.1")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.9.0")
 
 // Docs Plugins

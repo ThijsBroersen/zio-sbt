@@ -58,7 +58,6 @@ object ZioSbtCrossbuildPlugin extends AutoPlugin {
   override def buildSettings: Seq[Def.Setting[_]] =
     super.buildSettings ++
       ScalaVersions.buildSettings ++
-      ScalaPlatforms.buildSettings ++
       JavaVersions.buildSettings
 
   override def globalSettings: Seq[Def.Setting[_]] =

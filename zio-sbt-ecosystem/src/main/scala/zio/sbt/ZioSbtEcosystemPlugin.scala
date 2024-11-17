@@ -25,7 +25,7 @@ import org.scalafmt.sbt.ScalafmtPlugin
 import sbt.Keys._
 import sbt.nio.Keys.{ReloadOnSourceChanges, onChangedBuildSource}
 import sbt.{Def, _}
-import sbtbuildinfo.BuildInfoPlugin
+import sbtdynver.DynVerPlugin
 import scalafix.sbt.ScalafixPlugin
 
 import zio.sbt.ZioSbtShared.autoImport.{banners, usefulTasksAndSettings, welcomeMessage}
@@ -35,7 +35,7 @@ object ZioSbtEcosystemPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   override def requires: Plugins =
-    super.requires && HeaderPlugin && ScalafixPlugin && ScalafmtPlugin && BuildInfoPlugin && ZioSbtCrossbuildPlugin && MimaPlugin
+    super.requires && HeaderPlugin && ScalafixPlugin && ScalafmtPlugin && MimaPlugin && DynVerPlugin && ZioSbtCrossbuildPlugin
 
   object autoImport extends ScalaCompilerSettings with MimaSettings {
 
@@ -75,7 +75,7 @@ object ZioSbtEcosystemPlugin extends AutoPlugin {
       onLoadMessage := {
         if (SharedTasks.isRoot.value) welcomeMessage.init.value else ""
       }
-    )
+    ) ++ MimaSettings.projectSettings
 
   override def buildSettings: Seq[Def.Setting[_]] = super.buildSettings ++ Seq(
     zioVersion := zioVersion.?.value.getOrElse(Versions.zioVersion)

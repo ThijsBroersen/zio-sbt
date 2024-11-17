@@ -15,7 +15,6 @@
  */
 
 package zio.sbt
-
 import com.typesafe.tools.mima.plugin.MimaKeys._
 import sbt.Keys._
 import sbt._
@@ -26,15 +25,22 @@ import zio.sbt.BuildAssertions.Keys.isScalaJVM
 trait MimaSettings {
 
   lazy val checkMima: TaskKey[Unit] = taskKey[Unit]("Checks binary compatibility against previous versions.")
+}
 
-  def enableMimaSettings(failOnProblem: Boolean = true): Seq[Setting[_]] =
+object MimaSettings extends MimaSettings {
+
+  def projectSettings: Seq[Setting[_]] =
     Def.settings(
-      checkMima         := { if (isScalaJVM.value && !(checkMima / skip).value) mimaReportBinaryIssues.value else () },
-      mimaFailOnProblem := failOnProblem,
-      mimaPreviousArtifacts := previousStableVersion.value
+      checkMima := {
+        Def.taskIf {
+          if (isScalaJVM.value && !((checkMima / skip).value || (publish / skip).value)) mimaReportBinaryIssues.value
+          else ()
+        }.value
+      },
+      mimaFailOnProblem := true,
+      mimaPreviousArtifacts := (ThisBuild / previousStableVersion).value
         .map(organization.value %% moduleName.value % _)
-        .fold(Set.empty[ModuleID])(Set(_)),
-      mimaBinaryIssueFilters := Seq()
+        .fold(Set.empty[ModuleID])(Set(_))
     )
 
 }
