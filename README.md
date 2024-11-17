@@ -6,16 +6,16 @@
 
 _ZIO SBT_ contains multiple sbt plugins that are useful for ZIO projects. It provides high-level SBT utilities that simplify the development of ZIO applications.
 
-[![Production Ready](https://img.shields.io/badge/Project%20Stage-Production%20Ready-brightgreen.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-sbt/workflows/CI/badge.svg) [![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/zio-sbt-website_2.12.svg?label=Sonatype%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-sbt-website_2.12/) [![ZIO SBT](https://img.shields.io/github/stars/zio/zio-sbt?style=social)](https://github.com/zio/zio-sbt)
+[![Production Ready](https://img.shields.io/badge/Project%20Stage-Production%20Ready-brightgreen.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-sbt/workflows/CI/badge.svg) [![Sonatype Releases](https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/zio-sbt-website_2.12.svg?label=Sonatype%20Release)](https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-sbt-website_2.12/) [![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/zio-sbt-website_2.12.svg?label=Sonatype%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-sbt-website_2.12/) [![javadoc](https://javadoc.io/badge2/dev.zio/zio-sbt-docs_2.12/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-sbt-docs_2.12) [![ZIO SBT](https://img.shields.io/github/stars/zio/zio-sbt?style=social)](https://github.com/zio/zio-sbt)
 
 ## Installation
 
 Add the following lines to your `plugin.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % "<version>")
-addSbtPlugin("dev.zio" % "zio-sbt-ci"        % "<version>")
-addSbtPlugin("dev.zio" % "zio-sbt-website"   % "<version>")
+addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % "0.4.0-alpha.28")
+addSbtPlugin("dev.zio" % "zio-sbt-ci"        % "0.4.0-alpha.28")
+addSbtPlugin("dev.zio" % "zio-sbt-website"   % "0.4.0-alpha.28")
 ```
 
 Then you can enable them by using the following code in your `build.sbt` file:
@@ -49,7 +49,7 @@ These tasks can be used to display a consolidated list of banners and useful tas
 To use the ZIO SBT Shared plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-shared" % "<version>")
+addSbtPlugin("dev.zio" % "zio-sbt-shared" % "0.4.0-alpha.28")
 ```
 
 Then in your `build.sbt` file, you can configure the settings and tasks as needed:
@@ -82,7 +82,7 @@ This modules provides settings and tasks for Scala versions, Scala platforms, Ja
 To use the ZIO SBT Project plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-project" % "<version>")
+addSbtPlugin("dev.zio" % "zio-sbt-project" % "0.4.0-alpha.28")
 ```
 
 Then in your `build.sbt` file, enable the plugin by adding the following line:
@@ -160,7 +160,7 @@ depends on: ZioSbtProjectPlugin
 To use the ZIO SBT Ecosystem plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % "<version>")
+addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % "0.4.0-alpha.28")
 ```
 
 Then in your `build.sbt` file, enable the plugin by adding the following line:
@@ -288,7 +288,7 @@ The ZIO SBT CI plugin provides the following tasks (steps can be overridden or m
 To use the ZIO SBT CI plugin, add the following lines to your `plugins.sbt` file:
 
 ```scala
-addSbtPlugin("dev.zio" % "zio-sbt-ci" % "<version>")
+addSbtPlugin("dev.zio" % "zio-sbt-ci" % "0.4.0-alpha.28")
 
 resolvers ++= Resolver.sonatypeOssRepos("public")
 ```
