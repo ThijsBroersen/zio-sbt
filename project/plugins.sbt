@@ -23,5 +23,5 @@ addSbtPlugin("org.portable-scala" % "sbt-platform-deps"             % "1.0.2")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.8")
 
 libraryDependencies += "org.snakeyaml" % "snakeyaml-engine" % "3.0.1"
-libraryDependencies += "dev.zio"      %% "zio"              % "2.1.22"
+libraryDependencies += "dev.zio"      %% "zio"              % "2.1.26"
 libraryDependencies += "io.circe"     %% "circe-yaml"       % "0.15.2"
